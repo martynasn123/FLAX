@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Visio-LIN LT</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body {
+  font-family: Arial;
+  margin: 10px;
+}
+
+.container {
+  max-width: 900px;
+  margin: auto;
+}
+
+input, select, button {
+  width: 100%;
+  margin: 5px 0;
+  padding: 8px;
+}
+
+canvas {
+  margin-top: 20px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>Visio-LIN LT</h2>
+
+<label>Veislė</label>
+<select id="variety">
+  <option>DELTA</option>
+  <option>DAMARA</option>
+  <option>WPB ELOISE</option>
+</select>
+
+<label>Vietovė</label>
+<select id="location">
+  <option value="vilnius">Vilnius</option>
+  <option value="kedainiai">Kėdainiai (Dotnuva)</option>
+</select>
+
+<label>Sėjos data</label>
+<input type="date" id="sowing">
+
+<label>Sudygimo data</label>
+<input type="date" id="germination">
+
+<button onclick="loadData()">Atnaujinti</button>
+
+<canvas id="chart"></canvas>
+
+</div>
+
+<script>
+const BASE_TEMP = 5;
+
+const STATIONS = {
+  vilnius: "vilniaus-ams",
+  kedainiai: "dotnuvos-ams"
+};
+
+let chart = new Chart(document.getElementById("chart"), {
+  type: "line",
+  data: {
+    labels: [],
+    datasets: [{
+      label: "°C·d (nuo sudygimo)",
+      data: [],
+      borderColor: "green",
+      borderWidth: 4,
+      tension: 0.3
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: true }
+    }
+  }
+});
+
+async function fetchMeteoData(station) {
+  const year = new Date().getFullYear();
+  const url = `https://api.meteo.lt/v1/stations/${station}/observations/${year}-01-01`;
+
+  const res = await fetch(url);
+  const data = await res.json();
+  return data.observations || [];
+}
+
+function calculateGDD(data, germinationDate) {
+  let sum = 0;
+  let result = [];
+
+  data.forEach(d => {
+    const date = d.observationTimeUtc.split(" ")[0];
+
+    const t = parseFloat(d.airTemperature);
+    if (!t) return;
+
+    const gdd = Math.max(t - BASE_TEMP, 0);
+
+    if (date >= germinationDate) {
+      sum += gdd;
+    }
+
+    result.push({
+      date,
+      sum
+    });
+  });
+
+  return result;
+}
+
+async function loadData() {
+  const stationKey = document.getElementById("location").value;
+  const station = STATIONS[stationKey];
+  const germination = document.getElementById("germination").value;
+
+  if (!germination) {
+    alert("Įvesk sudygimo datą");
+    return;
+  }
+
+  const raw = await fetchMeteoData(station);
+  const gdd = calculateGDD(raw, germination);
+
+  updateChart(gdd);
+}
+
+function updateChart(data) {
+  chart.data.labels = data.map(d => d.date);
+  chart.data.datasets[0].data = data.map(d => d.sum);
+  chart.update();
+}
+</script>
+
+</body>
+</html>
