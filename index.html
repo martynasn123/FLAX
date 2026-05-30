@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Visio-LIN LT – linų vegetacijos prognozė (LHMT)</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+  <style>
+    :root{
+      --bg:#f4f7f3; --card:#fff; --text:#1f2d1f; --muted:#6b756b;
+      --green:#3f8536; --green2:#94b65f; --blue:#5d9cec; --orange:#d99a22;
+      --red:#bf4a3d; --border:#dce5da; --dark:#263326;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial, Helvetica, sans-serif;background:var(--bg);color:var(--text)}
+    header{padding:22px 28px;background:linear-gradient(135deg,#e8f2e5,#ffffff);border-bottom:1px solid var(--border)}
+    h1{margin:0 0 6px;font-size:28px}
+    h2{margin:0 0 12px}
+    h3{margin:0 0 8px;font-size:16px}
+    .sub{color:var(--muted);font-size:14px;line-height:1.45}
+    main{padding:22px;max-width:1360px;margin:auto}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 2px 10px rgba(0,0,0,.05);padding:18px;margin-bottom:18px}
+    .controls{display:grid;grid-template-columns:repeat(6,minmax(150px,1fr));gap:14px;align-items:end}
+    label{display:block;font-weight:700;font-size:13px;margin-bottom:6px;color:#344234}
+    select,input,button{width:100%;padding:10px 11px;border:1px solid #cbd8ca;border-radius:10px;background:#fff;font-size:14px}
+    button{background:var(--green);color:white;font-weight:700;cursor:pointer;border:none}
+    button:hover{filter:brightness(.95)}
+    .kpis{display:grid;grid-template-columns:repeat(6,minmax(150px,1fr));gap:14px}
+    .kpi{padding:16px;border-radius:14px;border:1px solid var(--border);background:#fbfdfb}
+    .kpi .label{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+    .kpi .value{font-size:24px;font-weight:800;margin-top:8px}
+    .kpi .note{font-size:12px;color:var(--muted);margin-top:4px}
+    .gridMain{display:grid;grid-template-columns:minmax(0,2.15fr) minmax(320px,.9fr);gap:18px;align-items:start}
+    .chartWrap{height:540px}
+    canvas{width:100%!important;height:100%!important}
+    table{width:100%;border-collapse:collapse;font-size:14px}
+    th,td{border-bottom:1px solid var(--border);padding:9px;text-align:left;vertical-align:top}
+    th{background:#f1f6f0;font-size:12px;text-transform:uppercase;color:#4b5a4b}
+    .legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;color:var(--muted);font-size:13px}
+    .dot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:5px}
+    .status{padding:10px 12px;border-radius:10px;background:#f7faf7;border:1px solid var(--border);font-size:13px;color:#435143;line-height:1.45}
+    .warn{background:#fff8ea;border-color:#f0d79c;color:#674b0e}
+    .error{background:#fff1f0;border-color:#efb8b2;color:#7b241c}
+    .small{font-size:12px;color:var(--muted);line-height:1.5}
+    .stageBadge{display:inline-block;background:var(--dark);color:#fff;border-radius:999px;padding:5px 12px;font-weight:700;font-size:13px;margin-bottom:8px}
+    .pillRow{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+    .pill{background:#eef4ec;border:1px solid var(--border);border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700;color:#3a4a3a}
+    .recBox{border-top:1px solid var(--border);padding-top:12px;margin-top:12px}
+    .recBox ul{margin:6px 0 0;padding-left:18px}
+    .recBox li{margin-bottom:6px;font-size:13px;line-height:1.45}
+    .recTitle{font-weight:800;font-size:13px;text-transform:uppercase;letter-spacing:.03em;color:#4b5a4b}
+    .recBox.plan{background:#f3f8f1;border:1px solid var(--border);border-radius:12px;padding:12px}
+    .recBox.risk{background:#fff6f4;border:1px solid #f0cfc8;border-radius:12px;padding:12px}
+    .riskMeter{height:10px;border-radius:6px;background:linear-gradient(90deg,#94b65f,#d99a22,#bf4a3d);position:relative;margin:6px 0 4px}
+    .riskMeter .mk{position:absolute;top:-4px;width:3px;height:18px;background:#263326;border-radius:2px}
+    .srcTag{font-size:11px;color:var(--muted)}
+    .fcGrid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:8px}
+    .fcDay{border:1px solid var(--border);border-radius:10px;padding:8px 6px;text-align:center;background:#fbfdfb}
+    .fcDay .d{font-size:11px;color:var(--muted);font-weight:700}
+    .fcDay .t{font-size:16px;font-weight:800;margin-top:3px}
+    .fcDay .r{font-size:11px;color:var(--blue);font-weight:700}
+    .fcDay.storm{border-color:#efb8b2;background:#fff1f0}
+    .inline-link{color:var(--green);font-weight:700}
+    progress{width:100%;height:10px}
+  </style>
+</head>
+<body>
+<header>
+  <h1>Visio-LIN LT <span style="font-size:14px;color:var(--muted);font-weight:400">· LHMT duomenys</span></h1>
+  <div class="sub">
+    Linų žydėjimo, pluošto ir sėklų brandos prognozė pagal sukauptą temperatūrą (bazė 5&nbsp;°C nuo sudygimo).
+    Faktiniai ir prognozės orai imami iš <b>Lietuvos hidrometeorologijos tarnybos (LHMT) Meteo.lt API</b>;
+    palyginimui naudojamas LHMT iki 10&nbsp;metų stebėjimų archyvas ir tikslus 2025&nbsp;m. sezono kalendorius.
+    Agronominės rekomendacijos parengtos pagal ARVALIS „Lin fibre“ principus.
+  </div>
+</header>
+
+<main>
+  <section class="card">
+    <div class="controls">
+      <div>
+        <label for="variety">Veislė</label>
+        <select id="variety">
+          <option value="DAMARA">DAMARA – vid. ankstyvumo</option>
+          <option value="BOLCHOI">BOLCHOI – vid. ankstyvumo</option>
+          <option value="DELTA">DELTA – ankstyva</option>
+          <option value="WPB ELOISE">WPB ELOISE – vid. ankstyvumo</option>
+        </select>
+      </div>
+      <div>
+        <label for="location">Vietovė / LHMT stotis</label>
+        <select id="location">
+          <option value="vilnius">Vilnius (Vilniaus AMS)</option>
+          <option value="dotnuva">Kėdainiai / Dotnuva (Dotnuvos AMS)</option>
+          <option value="panevezys">Panevėžys (Panevėžio AMS)</option>
+          <option value="anyksciai">Anykščiai (Anykščių AMS)</option>
+          <option value="jurbarkas">Jurbarkas (Jurbarko AMS)</option>
+          <option value="siauliai">Šiauliai (Šiaulių AMS)</option>
+        </select>
+      </div>
+      <div>
+        <label for="sowing">Sėjos data</label>
+        <input id="sowing" type="date" />
+      </div>
+      <div>
+        <label for="emergence">Sudygimo data</label>
+        <input id="emergence" type="date" />
+      </div>
+      <div>
+        <label for="rowSpacing">Tarpueilis</label>
+        <select id="rowSpacing">
+          <option value="7">7 cm</option>
+          <option value="12.5" selected>12,5 cm</option>
+          <option value="15">15 cm</option>
+          <option value="18">18 cm</option>
+        </select>
+      </div>
+      <div>
+        <button id="runBtn">Skaičiuoti</button>
+      </div>
+    </div>
+
+    <div class="controls" style="margin-top:14px;grid-template-columns:repeat(6,minmax(150px,1fr))">
+      <div>
+        <label for="plantsEmergence">Sudygus: aug./20 cm</label>
+        <input id="plantsEmergence" type="number" min="0" step="0.1" value="38" />
+      </div>
+      <div>
+        <label for="plantsPgr">Prieš reguliatorių: aug./20 cm</label>
+        <input id="plantsPgr" type="number" min="0" step="0.1" value="" />
+      </div>
+      <div>
+        <label for="plantsFlower">Po žydėjimo: aug./20 cm</label>
+        <input id="plantsFlower" type="number" min="0" step="0.1" value="" />
+      </div>
+      <div>
+        <label for="curHeight">Dabartinis aukštis, cm</label>
+        <input id="curHeight" type="number" min="0" step="1" value="" placeholder="pvz. 25" />
+      </div>
+      <div>
+        <label for="growthRate">Augimo sparta, cm/d</label>
+        <input id="growthRate" type="number" min="0" step="0.1" value="" placeholder="pvz. 3" />
+      </div>
+      <div>
+        <label for="histSource">Istorijos šaltinis</label>
+        <select id="histSource">
+          <option value="openmeteo">Open-Meteo (greita)</option>
+          <option value="lhmt">LHMT archyvas (tikslus, lėtas 1-as kartas)</option>
+        </select>
+      </div>
+    </div>
+    <div class="small" style="margin-top:10px">
+      Įveskite šios dienos parametrus (aukštį, augimo spartą, augalų tankumą) — pagal juos ir <b>būsimą LHMT orų prognozę</b>
+      sistema dėlioja artimiausių darbų ir rizikos rekomendacijas. Pirmą kartą atsisiuntus LHMT duomenis jie įrašomi į naršyklės atmintį,
+      todėl kiti skaičiavimai vyksta greitai.
+    </div>
+  </section>
+
+  <section id="status" class="card status">Pasirinkite parametrus ir spauskite „Skaičiuoti“.</section>
+  <section id="progressWrap" class="card" style="display:none">
+    <div class="small" id="progressLabel">Kraunama…</div>
+    <progress id="progressBar" max="100" value="0"></progress>
+  </section>
+
+  <section class="kpis">
+    <div class="kpi"><div class="label">Suminė temperatūra</div><div id="kpiGdd" class="value">–</div><div class="note">°C·d nuo sudygimo</div></div>
+    <div class="kpi"><div class="label">Sukaupti krituliai</div><div id="kpiRain" class="value">–</div><div class="note">mm nuo sudygimo</div></div>
+    <div class="kpi"><div class="label">Krituliai per 7 d.</div><div id="kpiRain7" class="value">–</div><div class="note">paskutinės 7 dienos</div></div>
+    <div class="kpi"><div class="label">Žydėjimas</div><div id="kpiFlower" class="value">–</div><div class="note" id="flowerThr">–</div></div>
+    <div class="kpi"><div class="label">Optimali rovimo pradžia</div><div id="kpiFiber" class="value">–</div><div class="note" id="fiberThr">–</div></div>
+    <div class="kpi"><div class="label">Augalų tankumas</div><div id="kpiDensity" class="value">–</div><div class="note">augalai/m²</div></div>
+  </section>
+
+  <section class="card">
+    <h2>Artimiausių dienų LHMT prognozė</h2>
+    <div class="small" id="fcMeta">–</div>
+    <div class="fcGrid" id="fcGrid"></div>
+  </section>
+
+  <section class="gridMain">
+    <div class="card">
+      <h2>Temperatūrų suma ir krituliai</h2>
+      <div class="chartWrap"><canvas id="mainChart"></canvas></div>
+      <div class="legend">
+        <span><span class="dot" style="background:var(--dark)"></span>Šiandienos riba</span>
+        <span><span class="dot" style="background:var(--green)"></span>Faktas – stora linija</span>
+        <span><span class="dot" style="background:transparent;border:2px dashed var(--green)"></span>Prognozė / tęsinys – punktyras</span>
+        <span><span class="dot" style="background:var(--green2)"></span>Daugiamečio vidurkis</span>
+        <span><span class="dot" style="background:var(--blue)"></span>Faktiniai dienos krituliai</span>
+        <span><span class="dot" style="background:#9b59b6"></span>2025 m. rovimo langas</span>
+      </div>
+    </div>
+
+    <aside class="card recPanel">
+      <h2>Einamojo momento rekomendacijos</h2>
+      <div id="recPanel">
+        <span class="stageBadge">–</span>
+        <div class="small">Rekomendacijos bus atnaujintos pagal sukauptas °C·d ir orų prognozę.</div>
+      </div>
+      <div class="recBox">
+        <h3>Veislės ribos</h3>
+        <table><tbody id="thresholdTable"></tbody></table>
+      </div>
+      <div class="recBox">
+        <h3>Augalų apskaita 3 tarpsniais</h3>
+        <div class="small">
+          Formulė: <b>augalai/m² = augalų sk. per 20 cm / (0,20 × tarpueilis m)</b>.
+          ARVALIS optimumas verse/derliui suderinti — <b>1600–1800 aug./m²</b>; viršijus didėja išgulimo rizika.
+        </div>
+        <table style="margin-top:10px"><tbody id="densityStageTable"></tbody></table>
+      </div>
+    </aside>
+  </section>
+
+  <section class="card">
+    <h2>Daugiamečio palyginimo lentelė</h2>
+    <table>
+      <thead>
+        <tr><th>Metai</th><th>Žydėjimas</th><th>Pluošto branda</th><th>Sėklų branda</th><th>Krituliai iki žydėjimo</th></tr>
+      </thead>
+      <tbody id="historyTable"></tbody>
+    </table>
+    <div class="small" style="margin-top:8px">Datos modeliuojamos pagal sukauptą °C·d kiekvienais metais (LHMT/Open-Meteo archyvas).</div>
+  </section>
+
+  <section class="card">
+    <h2>2025 m. faktinis sezonas (jūsų „SEZONAS 2025“ duomenys)</h2>
+    <div class="small" id="season2025Summary">–</div>
+    <table style="margin-top:10px">
+      <thead>
+        <tr><th>Operacija</th><th>2025 m. mediana</th><th>Interval\u0105 (anks\u010diausia\u2026v\u0117liausia)</th><th>Komentaras</th></tr>
+      </thead>
+      <tbody id="season2025Table"></tbody>
+    </table>
+    <div class="small" style="margin-top:8px">
+      Šie tikslūs 2025 m. darbų laikai naudojami kaip atskaitos taškas — chartoje violetinis langas rodo, kada pernai vyko rovimas.
+    </div>
+  </section>
+
+  <section class="card small">
+    <b>Pastaba.</b> Faktiniai orai imami iš LHMT meteorologijos stočių stebėjimų (valandiniai duomenys agreguojami į paros vidurkį/sumą),
+    prognozė — iš LHMT „long-term“ prognozės. Po prognozės horizonto datos tęsiamos pagal daugiametį vidurkį.
+    Rekomendacijų langas yra agronominio planavimo prototipas pagal ARVALIS principus: jis nenurodo konkrečių registruotų produktų ir
+    nepakeičia vietinių BSV/LHMT/etiketės reikalavimų. Veikliosios medžiagos minimos tik kaip orientyras — naudoti tik pagal Lietuvoje
+    registruotą naudojimą linams. Duomenų šaltinis: LHMT (CC BY-SA 4.0).
+  </section>
+</main>
+
+<script>
+/* ============ EMBEDDED 2025 SEASON DATA (from SEZONAS_2025.xlsx) ============ */
+const SEASON2025 = {"season":2025,"varieties":["Bolchoi","Damara"],"ops":{"sow":{"earliest":"2025-04-18","median":"2025-05-26","latest":"2025-05-29","n":45},"mcpa":{"earliest":"2025-06-03","median":"2025-06-07","latest":"2025-06-20","n":41},"pantera":{"earliest":"2025-06-13","median":"2025-06-14","latest":"2025-06-17","n":7},"prePull":{"earliest":"2025-08-07","median":"2025-08-15","latest":"2025-08-15","n":11},"pull":{"earliest":"2025-08-07","median":"2025-09-01","latest":"2025-09-10","n":38}},"sowToPullDays":{"min":85,"median":103,"max":112,"n":38}};
+
+/* ============ CONFIG ============ */
+// station = LHMT observation station code; lat/lon = station coords (also used to find nearest forecast place & for Open-Meteo)
+const locations = {
+  vilnius:   {name:"Vilnius – Vilniaus AMS",        station:"vilniaus-ams",  lat:54.625992, lon:25.107064},
+  dotnuva:   {name:"Kėdainiai / Dotnuva – Dotnuvos AMS", station:"dotnuvos-ams", lat:55.395993, lon:23.866224},
+  panevezys: {name:"Panevėžys – Panevėžio AMS",     station:"panevezio-ams", lat:55.735154, lon:24.417184},
+  anyksciai: {name:"Anykščiai – Anykščių AMS",      station:"anyksciu-ams",  lat:55.51735,  lon:25.1178},
+  jurbarkas: {name:"Jurbarkas – Jurbarko AMS",      station:"jurbarko-ams",  lat:55.094064, lon:22.773518},
+  siauliai:  {name:"Šiauliai – Šiaulių AMS",        station:"siauliu-ams",   lat:55.942222, lon:23.331111}
+};
+// GDD thresholds (°C·d, base 5, from emergence). Calibruojama; rodomas 2025 faktinis rovimas palyginimui.
+const varieties = {
+  "DAMARA":      {group:"vidutinio ankstyvumo", flower:575, fiber:900, seed:1050},
+  "BOLCHOI":     {group:"vidutinio ankstyvumo", flower:575, fiber:900, seed:1050},
+  "DELTA":       {group:"ankstyva",             flower:550, fiber:850, seed:1000},
+  "WPB ELOISE":  {group:"vidutinio ankstyvumo", flower:575, fiber:900, seed:1050}
+};
+const LHMT = "https://api.meteo.lt/v1";
+const FORECAST_HORIZON_DAYS = 7;   // LHMT long-term ~7 d.
+const SEASON_WINDOW_DAYS = 130;    // daugiamečio vidurkio lango ilgis nuo sudygimo
+const LHMT_THROTTLE_MS = 360;      // <180 užklausų/min apsauga
+
+let chart;
+
+/* ============ UTIL ============ */
+const fmt = d => d.toISOString().slice(0,10);
+const parse = s => new Date(s + "T00:00:00");
+const addDays = (d,n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+const md = d => String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+const ltDate = s => s ? md(parse(s)) : "–";
+const gdd = t => Math.max(0, (t ?? 0) - 5);
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+function haversine(a,b,c,d){const R=6371,t=x=>x*Math.PI/180;const dla=t(c-a),dlo=t(d-b);
+  const x=Math.sin(dla/2)**2+Math.cos(t(a))*Math.cos(t(c))*Math.sin(dlo/2)**2;return 2*R*Math.asin(Math.sqrt(x));}
+
+function setStatus(msg, cls="status"){
+  const el = document.getElementById("status");
+  el.className = "card status " + (cls || "");
+  el.innerHTML = msg;
+}
+function showProgress(on,label,pct){
+  document.getElementById("progressWrap").style.display = on ? "block" : "none";
+  if(label!=null) document.getElementById("progressLabel").textContent = label;
+  if(pct!=null) document.getElementById("progressBar").value = pct;
+}
+
+/* ============ LOCAL CACHE (permanent for past observations) ============ */
+const memCache = new Map();
+function cacheKey(station,date){return "vlin:obs:"+station+":"+date;}
+function cacheGet(station,date){
+  const k=cacheKey(station,date);
+  if(memCache.has(k)) return memCache.get(k);
+  try{const v=localStorage.getItem(k); if(v!=null){const o=JSON.parse(v);memCache.set(k,o);return o;}}catch(e){}
+  return undefined;
+}
+function cacheSet(station,date,val){
+  const k=cacheKey(station,date); memCache.set(k,val);
+  try{localStorage.setItem(k,JSON.stringify(val));}catch(e){}
+}
+
+/* ============ LHMT: forecast places lookup ============ */
+let placesCache=null;
+async function loadPlaces(){
+  if(placesCache) return placesCache;
+  try{const ls=localStorage.getItem("vlin:places"); if(ls){placesCache=JSON.parse(ls);return placesCache;}}catch(e){}
+  const r=await fetch(LHMT+"/places");
+  if(!r.ok) throw new Error("Nepavyko gauti LHMT vietovių sąrašo (CORS?).");
+  placesCache=await r.json();
+  try{localStorage.setItem("vlin:places",JSON.stringify(placesCache));}catch(e){}
+  return placesCache;
+}
+async function nearestPlaceCode(lat,lon){
+  const ps=await loadPlaces();
+  let best=null,bd=1e9;
+  for(const p of ps){const d=haversine(lat,lon,p.coordinates.latitude,p.coordinates.longitude);if(d<bd){bd=d;best=p;}}
+  return best?best.code:null;
+}
+
+/* ============ LHMT: forecast (hourly -> daily) ============ */
+function aggregateDaily(items, tKey, pKey){
+  // items: array with forecastTimeUtc/observationTimeUtc + temp + precip [+ wind/condition]
+  const byDate={};
+  for(const it of items){
+    const ts = it.forecastTimeUtc || it.observationTimeUtc;
+    if(!ts) continue;
+    const date = ts.slice(0,10);
+    const t = it[tKey]; const p = it[pKey];
+    const wind = it.windGust ?? it.windSpeed ?? null;
+    const cond = it.conditionCode || "";
+    const o = byDate[date] || (byDate[date]={ts:0,tsum:0,psum:0,wmax:0,storm:false});
+    if(typeof t === "number"){o.tsum+=t;o.ts++;}
+    if(typeof p === "number"){o.psum+=p;}
+    if(typeof wind === "number" && wind>o.wmax) o.wmax=wind;
+    if(/thunder|storm|hail|squall/i.test(cond)) o.storm=true;
+  }
+  return Object.keys(byDate).sort().map(date=>{
+    const o=byDate[date];
+    return {date, tmean:o.ts?o.tsum/o.ts:null, rain:o.psum, windMax:o.wmax, storm:o.storm};
+  });
+}
+async function fetchForecastLHMT(loc){
+  const code = await nearestPlaceCode(loc.lat,loc.lon);
+  const r=await fetch(LHMT+"/places/"+code+"/forecasts/long-term");
+  if(!r.ok) throw new Error("Nepavyko gauti LHMT prognozės.");
+  const j=await r.json();
+  const rows=aggregateDaily(j.forecastTimestamps||[], "airTemperature", "totalPrecipitation");
+  return rows.map(x=>({...x, source:"forecast"}));
+}
+
+/* ============ LHMT: single-day observation (cached) ============ */
+async function fetchObsDayLHMT(station,date){
+  const c=cacheGet(station,date);
+  if(c!==undefined) return c; // includes null (no data)
+  const r=await fetch(LHMT+"/stations/"+station+"/observations/"+date);
+  if(r.status===404){cacheSet(station,date,null);return null;}
+  if(!r.ok) throw new Error("LHMT stebėjimų klaida ("+r.status+")");
+  const j=await r.json();
+  const agg=aggregateDaily(j.observations||[], "airTemperature", "precipitation");
+  const day = agg.find(x=>x.date===date) || agg[0] || null;
+  const val = day ? {tmean:day.tmean, rain:day.rain} : null;
+  cacheSet(station,date,val);
+  await sleep(LHMT_THROTTLE_MS); // tik realiai gavus iš tinklo
+  return val;
+}
+async function fetchObsRangeLHMT(station,start,end,onProg){
+  const rows=[]; let d=parse(start); const e=parse(end);
+  const total=Math.round((e-d)/86400000)+1; let i=0;
+  while(d<=e){
+    const ds=fmt(d);
+    const v=await fetchObsDayLHMT(station,ds);
+    if(v && v.tmean!=null) rows.push({date:ds, tmean:v.tmean, rain:v.rain||0, source:"fact"});
+    i++; if(onProg && i%3===0) onProg(i,total);
+    d=addDays(d,1);
+  }
+  if(onProg) onProg(total,total);
+  return rows;
+}
+
+/* ============ Open-Meteo fallback (range in one request) ============ */
+async function fetchArchiveOM(lat,lon,start,end){
+  const url=`https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${start}&end_date=${end}&daily=temperature_2m_mean,precipitation_sum&timezone=Europe%2FVilnius`;
+  const r=await fetch(url); if(!r.ok) throw new Error("Open-Meteo archyvo klaida"); const j=await r.json();
+  const d=j.daily||{}; return (d.time||[]).map((date,i)=>({date,tmean:d.temperature_2m_mean?.[i]??null,rain:d.precipitation_sum?.[i]??0,source:"fact"}));
+}
+async function fetchForecastOM(lat,lon,days=16){
+  const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_mean,precipitation_sum,windgusts_10m_max&timezone=Europe%2FVilnius&forecast_days=${days}`;
+  const r=await fetch(url); if(!r.ok) throw new Error("Open-Meteo prognozės klaida"); const j=await r.json();
+  const d=j.daily||{}; return (d.time||[]).map((date,i)=>({date,tmean:d.temperature_2m_mean?.[i]??null,rain:d.precipitation_sum?.[i]??0,windMax:d.windgusts_10m_max?.[i]??0,storm:false,source:"forecast"}));
+}
+
+/* ============ SOURCE ROUTER ============ */
+function histSource(){return document.getElementById("histSource").value;}
+async function getActuals(loc,start,end,onProg){
+  // recent-season actuals always from LHMT (authoritative + recent); fallback to Open-Meteo on error
+  try{ return await fetchObsRangeLHMT(loc.station,start,end,onProg); }
+  catch(e){ console.warn("LHMT fakto klaida, naudojamas Open-Meteo:",e); return await fetchArchiveOM(loc.lat,loc.lon,start,end); }
+}
+async function getYearRows(loc,start,end,onProg){
+  if(histSource()==="lhmt"){
+    try{ return await fetchObsRangeLHMT(loc.station,start,end,onProg); }
+    catch(e){ console.warn("LHMT archyvo klaida, Open-Meteo:",e); }
+  }
+  return await fetchArchiveOM(loc.lat,loc.lon,start,end);
+}
+
+/* ============ MODEL ============ */
+function cumulative(rows){
+  let sum=0,rain=0;
+  return rows.map(r=>{sum+=gdd(r.tmean);rain+=r.rain||0;return {...r,gdd:gdd(r.tmean),cumGdd:sum,cumRain:rain};});
+}
+function findDate(rows,th){const r=rows.find(x=>x.cumGdd>=th);return r?r.date:null;}
+function rainUntil(rows,date){if(!date)return null;return rows.filter(r=>r.date<=date).reduce((a,b)=>a+(b.rain||0),0);}
+
+async function getMultiYearAverage(loc,calcStart,thresholds,nYears){
+  const sow=parse(calcStart); const year=new Date().getFullYear();
+  const years=[]; for(let k=nYears;k>=1;k--) years.push(year-k);
+  const perYear=[];
+  let yi=0;
+  for(const y of years){
+    yi++;
+    const start=`${y}-${String(sow.getMonth()+1).padStart(2,"0")}-${String(sow.getDate()).padStart(2,"0")}`;
+    const end=fmt(addDays(parse(start),SEASON_WINDOW_DAYS));
+    const rows=cumulative(await getYearRows(loc,start,end,(i,t)=>{
+      showProgress(true,`Kraunamas ${y} m. archyvas (${yi}/${years.length}): ${i}/${t} d.`, Math.round(((yi-1)+i/t)/years.length*100));
+    }));
+    perYear.push({year:y,rows});
+  }
+  const maxLen=Math.max(...perYear.map(y=>y.rows.length));
+  const avgRows=[];
+  for(let i=0;i<maxLen;i++){
+    const vals=perYear.map(y=>y.rows[i]).filter(Boolean);
+    if(!vals.length) continue;
+    avgRows.push({offset:i,date:fmt(addDays(sow,i)),
+      tmean:vals.reduce((a,b)=>a+(b.tmean??0),0)/vals.length,
+      rain:vals.reduce((a,b)=>a+(b.rain??0),0)/vals.length, source:"avg"});
+  }
+  const avgCum=cumulative(avgRows);
+  const hist=perYear.map(y=>{
+    const fl=findDate(y.rows,thresholds.flower),fi=findDate(y.rows,thresholds.fiber),se=findDate(y.rows,thresholds.seed);
+    return {year:y.year,flower:fl,fiber:fi,seed:se,rainFlower:rainUntil(y.rows,fl)};
+  });
+  return {avgCum,hist};
+}
+function extendWithAverage(baseRows,avgRows,thresholds,calcStart){
+  let rows=[...baseRows];
+  let cum=rows.length?rows[rows.length-1].cumGdd:0;
+  let rain=rows.length?rows[rows.length-1].cumRain:0;
+  const lastDate=rows.length?parse(rows[rows.length-1].date):new Date();
+  let offset=Math.round((lastDate-parse(calcStart))/86400000)+1;
+  for(let i=0;i<200;i++){
+    if(cum>=thresholds.seed) break;
+    const av=avgRows[offset]||avgRows[avgRows.length-1];
+    const d=addDays(lastDate,i+1); const add=gdd(av?.tmean??12);
+    cum+=add; rain+=av?.rain??0;
+    rows.push({date:fmt(d),tmean:av?.tmean??null,rain:av?.rain??0,gdd:add,cumGdd:cum,cumRain:rain,source:"model",projected:true});
+    offset++;
+  }
+  return rows;
+}
+
+/* ============ DENSITY ============ */
+function densityFromCount(count,rowCm){const c=parseFloat(count),r=parseFloat(rowCm||"12.5");if(!c||!r)return 0;return c/(0.20*(r/100));}
+function getDensities(){
+  const rowCm=parseFloat(document.getElementById("rowSpacing").value||"12.5");
+  const emergence=densityFromCount(document.getElementById("plantsEmergence").value,rowCm);
+  const pgr=densityFromCount(document.getElementById("plantsPgr").value,rowCm);
+  const flower=densityFromCount(document.getElementById("plantsFlower").value,rowCm);
+  return {rowCm,emergence,pgr,flower,latest:flower||pgr||emergence||0};
+}
+function densityAdvice(d){
+  const density=d.latest||d.emergence||0;
+  if(!density) return "Įveskite tarpueilį ir bent vieno tarpsnio augalų skaičių per 20 cm.";
+  let base="";
+  if(density<1400) base="Pasėlis retokas (<1400 aug./m²): didesnė piktžolių konkurencija ir netolygaus stiebo rizika; pagal ARVALIS verse rizika maža.";
+  else if(density<=1800) base="Tankumas ARVALIS optimaliame intervale 1600–1800 aug./m² — gerai suderina derlių ir atsparumą išgulimui.";
+  else base="Pasėlis tankus (>1800 aug./m²): plonesni stiebai, didesnė išgulimo rizika ir mažesnis ilgo pluošto derlius (ARVALIS).";
+  const s1=d.emergence&&d.pgr?Math.round(d.pgr/d.emergence*100):null;
+  const s2=d.pgr&&d.flower?Math.round(d.flower/d.pgr*100):null;
+  if(s1!==null&&s1<90) base+=" Nuo sudygimo iki reguliatoriaus tankumas sumažėjo >10 % – ieškokite priežasties.";
+  if(s2!==null&&s2<90) base+=" Po žydėjimo papildomas nunykimas – patikrinkite ligas, šaknų zoną, išgulimą.";
+  return base;
+}
+function renderDensityStageTable(d){
+  const pct=(a,b)=>a&&b?Math.round(b/a*100)+"%":"–";
+  const row=(n,v,c)=>`<tr><td>${n}</td><td>${v?Math.round(v):"–"}</td><td>${c}</td></tr>`;
+  document.getElementById("densityStageTable").innerHTML=
+    row("Sudygimo tankis",d.emergence,"Pradinė bazė")+
+    row("Prieš reguliatoriaus sprendimą",d.pgr,"Išlikimas nuo sudygimo: "+pct(d.emergence,d.pgr))+
+    row("Po žydėjimo",d.flower,"Išlikimas nuo reguliatoriaus: "+pct(d.pgr,d.flower));
+}
+
+/* ============ ARVALIS LODGING-RISK GRID (climat-sol-plante 0..9) ============ */
+function lodgingRisk(density, growthCmDay, fc){
+  // PLANTE (density + growth) — pagal ARVALIS lentelę: tankumo ir augimo spartos juostos (0..3), imamas didesnis
+  let densBand=0;
+  if(density>1800) densBand=3; else if(density>1600) densBand=2; else if(density>1400) densBand=1;
+  let growBand=0;
+  if(growthCmDay!=null){ if(growthCmDay>5) growBand=3; else if(growthCmDay>3) growBand=2; else if(growthCmDay>2) growBand=1; }
+  const plante=Math.max(densBand,growBand);
+  // CLIMAT — iš prognozės: karštis >25°C, audros, stiprus vėjas, lietus
+  let climat=0;
+  if(fc){
+    if(fc.tmax>25) climat+=2; else if(fc.tmax>=20) climat+=1;
+    if(fc.storm) climat+=1;
+    if(fc.windMax>=12) climat+=1;
+    if(fc.rainSum>20) climat+=1;
+  }
+  climat=Math.min(3,climat);
+  const total=Math.min(9, plante+climat); // SOL paliekamas vartotojo vertinimui (0)
+  let level="Nul"; if(total>=8) level="Stiprus"; else if(total>=6) level="Vidutinis"; else if(total>=4) level="Silpnas";
+  return {plante,climat,total,level};
+}
+
+/* ============ FORECAST SUMMARY ============ */
+function forecastSummary(fcRows){
+  const next=fcRows.slice(0,7).filter(r=>r.tmean!=null||r.rain!=null);
+  if(!next.length) return null;
+  const tmax=Math.max(...next.map(r=>r.tmean??-99));
+  const rainSum=next.reduce((a,b)=>a+(b.rain||0),0);
+  const windMax=Math.max(...next.map(r=>r.windMax||0));
+  const storm=next.some(r=>r.storm);
+  const dryDays=next.filter(r=>(r.rain||0)<1).length;
+  return {tmax,rainSum,windMax,storm,dryDays,n:next.length};
+}
+
+/* ============ RECOMMENDATIONS (Arvalis-grounded + forecast-aware) ============ */
+function recommendations(cumGdd, rain7, cumRain, thresholds, flowerDate, fiberDate, densities, curHeight, growthRate, fc){
+  const pctFlower=Math.round((cumGdd/thresholds.flower)*100);
+  const dens=densities.latest||0;
+  const lr=lodgingRisk(dens, growthRate, fc);
+  let stage,now=[],plan=[],risk=[];
+
+  // STAGE (pagal °C·d ir, jei žinomas, aukštį)
+  if(cumGdd<80){
+    stage="Sėja → dygimas";
+    now=["Tikrinkite dirvos plutą, sudygimo tolygumą ir tankumą (ARVALIS: greitas tolygus sudygimas = geresnė konkurencija su piktžolėmis).",
+         "Pradėkite piktžolių apskaitą atskirai dviskiltėms ir varpinėms.",
+         "Stebėkite spragių (altisų) pažeidimus – pavojingiausia skilčialapių–5 cm tarpsnyje."];
+    plan=["Prieš sudygimą / iškart po jo – priešdygiminis dviskilčių valdymas (mezotrionas / sulkotrionas) ir varpinių (napropamidas) tik pagal LT registraciją.",
+          "Mechaninis ravėjimas – tik kai po darbo bus sausa."];
+  } else if(cumGdd<220){
+    stage="Dygimas → 3–5 cm";
+    now=["Spragių (altisų) stebėsena iki ~5 cm tarpsnio; vėjuotu oru jų aktyvumas mažesnis (ARVALIS).",
+         "Piktžolių kontrolės langas atviras: poatželinis purškimas efektyvus tik kol piktžolės iki ~3 lapelių (optimumas tarp skilčialapių ir 2–3 lapelių).",
+         "Vertinkite dviskiltes ir varpines atskirai."];
+    plan=["Poatželinis langas: linas turi gerai augti, šaknys (jei naudojamas šakninis herbicidas) ≥10 cm, paros temp. amplitudė ≤10 °C (ARVALIS sąlygos).",
+          "Varpinėms – graminicidai (pvz. „pantera“ tipo) pagal LT registraciją; 2025 m. jūs juos naudojot apie 06-14.",
+          "Sekite tolygumą – linas blogai kompensuoja tuščias vietas."];
+  } else if(cumGdd<420){
+    stage="Jaunas augimas → stiebo ilgėjimas";
+    now=["Vertinkite augimo spartą (cm/d) ir tankumą — tai pagrindiniai išgulimo rizikos veiksniai (ARVALIS).",
+         "Jei linas dar <20 cm – paskutinis piktžolių kontrolės langas.",
+         "Stebėkite miltligę (oïdium): pagal ARVALIS pirmieji požymiai galimi jau nuo 7 cm, stiprėja ties 15–20 cm."];
+    plan=["Įvertinkite išgulimo riziką grilėje (žemiau). Augimo reguliatorius – kraštutinė priemonė, sisteminis naudojimas nepatariamas (gali sumažinti pluošto derlių).",
+          "Jei reguliatorius reikalingas: etefonas nuo ~40–50 cm iki prieš žydėjimą, tik pagal LT registraciją.",
+          "Drėgmė nuo 10 cm iki žydėjimo – kritinė: 2025 m. <10–25 mm šiame tarpsnyje davė trumpus linus ir mažesnį derlių (ARVALIS)."];
+  } else if(cumGdd<thresholds.flower){
+    stage="Stiebo ilgėjimas → prieš žydėjimą";
+    now=["Paskutinis langas išgulimo ir miltligės valdymui prieš žydėjimą.",
+         "Piktžolių kontrolė paprastai jau uždaryta (linas >20 cm).",
+         `Žydėjimas prognozuojamas apie ${ltDate(flowerDate)} (${Math.max(0,thresholds.flower-Math.round(cumGdd))} °C·d liko).`];
+    plan=["Užbaikite reikalingus apsaugos sprendimus iki žydėjimo – po jo nauda mažėja.",
+          "Pradėkite derinti rovimo techniką ir darbo jėgą (2025 m. mediana: rovimas ~"+(SEASON2025?ltDate(SEASON2025.ops.pull.median):"09-01")+")."];
+  } else if(cumGdd<thresholds.fiber){
+    stage="Po žydėjimo → pluošto branda";
+    now=["Apsaugos intervencijų nuo ligų/išgulimo po žydėjimo paprastai nebeplanuokite (ARVALIS).",
+         "Sekite brandą ir pluošto formavimąsi."];
+    plan=[`Rovimo pradžia prognozuojama apie ${ltDate(fiberDate)}. Rezervuokite techniką.`,
+          "Karšti orai gali greitinti brandą – tikrinkite grafiką kasdien."];
+  } else if(cumGdd<thresholds.seed){
+    stage="Optimali pluošto branda → sėklų branda";
+    now=["Pagrindinis rovimo langas pluoštui – prioritetas organizavimas ir oro langai.",
+         "Klojėjimo/rūšiavimo planavimas pagal kritulius ir džiūvimo sąlygas (rouissage)."];
+    plan=["Jei siekiama sėklų, stebėkite likusią °C·d sumą iki sėklų brandos."];
+  } else {
+    stage="Sėklų branda / perbranda";
+    now=["Pluošto kokybės požiūriu – vėlyvoji zona.","Jei nenurauta – greitas darbų organizavimas, kai leidžia orai."];
+    plan=["Sekite lietų ir džiūvimo langus klojėjimo darbams."];
+  }
+
+  // RISK — drėgmė
+  if(cumRain<40 && cumGdd>=220 && cumGdd<thresholds.flower) risk.push("Mažai sukauptų kritulių aktyvaus augimo fazėje – drėgmės streso ir žemų linų rizika (ARVALIS).");
+  // RISK — tankumas
+  if(dens && dens<1400) risk.push("Tankumas <1400 aug./m²: didesnė piktžolių konkurencija.");
+  if(dens && dens>1800) risk.push("Tankumas >1800 aug./m²: padidėjusi išgulimo rizika.");
+  // RISK — išgulimas iš grilės
+  if(lr.total>=6) risk.push(`Išgulimo (verse) rizika: <b>${lr.level}</b> (grilė ${lr.total}/9; augalas ${lr.plante}/3, klimatas ${lr.climat}/3). ARVALIS: pirma agronomija, reguliatorius – kraštutinė priemonė.`);
+
+  // FORECAST-AWARE plan
+  if(fc){
+    const fcLine=`Artimiausių ${fc.n} d. prognozė (LHMT): maks. ${Math.round(fc.tmax)} °C, krituliai ~${Math.round(fc.rainSum)} mm, sausų dienų ${fc.dryDays}, maks. vėjo gūsis ${Math.round(fc.windMax)} m/s${fc.storm?", galima perkūnija":""}.`;
+    plan.unshift(fcLine);
+    // purškimo langai
+    if(stage.indexOf("Dygimas")>=0 || stage.indexOf("Jaunas")>=0 || stage.indexOf("3–5")>=0){
+      if(fc.dryDays>=2 && fc.windMax<8) plan.push("Prognozėje yra sausų ir neaudringų dienų – tinkamas langas piktžolių purškimui/mechaniniam ravėjimui.");
+      else risk.push("Artimiausiomis dienomis drėgna/vėjuota – purškimo/ravėjimo langas ribotas.");
+    }
+    if((stage.indexOf("Jaunas")>=0 || stage.indexOf("Stiebo")>=0) && (fc.tmax>25 || fc.storm) && (growthRate!=null && growthRate>4)){
+      risk.push("Karštis/audra prognozėje + spartus augimas (>4 cm/d): padidėjusi išgulimo rizika – įvertinkite grilę ir, jei reikia, reguliatorių (pagal LT registraciją).");
+    }
+    if(stage.indexOf("rovimo")>=0 || stage.indexOf("branda")>=0){
+      if(fc.dryDays>=3) plan.push("Prognozuojamos sausos dienos – tinkamas langas rovimui ir klojėjimui/vartymui.");
+      else if(fc.rainSum>25) risk.push("Prognozuojami gausūs krituliai – rovimo/klojėjimo langas blogesnis, planuokite atsargiai.");
+    }
+  }
+
+  if(!risk.length) risk.push("Reikšmingų rizikos signalų pagal įvestus duomenis ir prognozę nematyti.");
+  plan.push("Po 3–4 d. pakartoti aukščio, augimo spartos, ligų, piktžolių ir išgulimo rizikos vertinimą.");
+  return {stage,now,plan,risk,pctFlower,dText:densityAdvice(densities),lr};
+}
+
+function renderRecommendations(cumGdd,rain7,cumRain,thresholds,flowerDate,fiberDate,densities,curHeight,growthRate,fc){
+  const r=recommendations(cumGdd,rain7,cumRain,thresholds,flowerDate,fiberDate,densities,curHeight,growthRate,fc);
+  const lr=r.lr;
+  const mkPos=Math.min(100,Math.round(lr.total/9*100));
+  document.getElementById("recPanel").innerHTML=`
+    <span class="stageBadge">${r.stage}</span>
+    <div class="small">Sukaupta: <b>${Math.round(cumGdd)} °C·d</b>. Iki žydėjimo: <b>${Math.max(0,thresholds.flower-Math.round(cumGdd))} °C·d</b>.
+      ${curHeight?`Aukštis: <b>${curHeight} cm</b>. `:""}${growthRate!=null?`Augimas: <b>${growthRate} cm/d</b>.`:""}</div>
+    <div class="pillRow">
+      <span class="pill">Žydėjimo eiga: ${Math.min(100,r.pctFlower)}%</span>
+      <span class="pill">7 d. krituliai: ${Math.round(rain7)} mm</span>
+      <span class="pill">Nuo sėjos: ${Math.round(cumRain)} mm</span>
+      <span class="pill">Tankumas: ${Math.round(densities.latest||0)} aug./m²</span>
+    </div>
+    <div class="recBox">
+      <div class="recTitle">Išgulimo (verse) rizikos grilė — ARVALIS</div>
+      <div class="small">Augalas (tankumas+augimas): <b>${lr.plante}/3</b> · Klimatas (prognozė): <b>${lr.climat}/3</b> · Bendrai: <b>${lr.total}/9 → ${lr.level}</b>.
+      <br>Dirvos (sol) komponentą (potencialas, MO, struktūra) įvertinkite patys ir pridėkite.</div>
+      <div class="riskMeter"><div class="mk" style="left:${mkPos}%"></div></div>
+    </div>
+    <div class="recBox">
+      <div class="recTitle">Pasėlio tankumo komentaras</div>
+      <div class="small">${r.dText}</div>
+    </div>
+    <div class="recBox">
+      <div class="recTitle">Ką daryti dabar</div>
+      <ul>${r.now.map(x=>`<li>${x}</li>`).join("")}</ul>
+    </div>
+    <div class="recBox plan">
+      <div class="recTitle">Ką planuoti (pagal LHMT prognozę)</div>
+      <ul>${r.plan.map(x=>`<li>${x}</li>`).join("")}</ul>
+    </div>
+    <div class="recBox risk">
+      <div class="recTitle">Rizikos signalai</div>
+      <ul>${r.risk.map(x=>`<li>${x}</li>`).join("")}</ul>
+    </div>`;
+}
+
+/* ============ FORECAST CARD ============ */
+function renderForecastCard(fcRows, srcLabel){
+  const grid=document.getElementById("fcGrid");
+  const days=fcRows.slice(0,7);
+  document.getElementById("fcMeta").textContent = days.length
+    ? `Šaltinis: ${srcLabel}. Rodomos ${days.length} d. (paros vidurkis / kritulių suma).`
+    : "Prognozės duomenų nėra.";
+  grid.innerHTML=days.map(d=>{
+    const dd=parse(d.date);
+    const wd=["Sk","Pr","An","Tr","Kt","Pn","Št"][dd.getDay()];
+    return `<div class="fcDay ${d.storm?"storm":""}">
+      <div class="d">${wd} ${md(dd)}</div>
+      <div class="t">${d.tmean!=null?Math.round(d.tmean)+"°":"–"}</div>
+      <div class="r">${d.rain?Math.round(d.rain)+" mm":""}</div>
+      ${d.windMax?`<div class="small">${Math.round(d.windMax)} m/s</div>`:""}
+    </div>`;}).join("");
+}
+
+/* ============ 2025 SEASON CARD ============ */
+function render2025(){
+  if(!SEASON2025){return;}
+  const o=SEASON2025.ops, sp=SEASON2025.sowToPullDays;
+  document.getElementById("season2025Summary").innerHTML=
+    `Atskaitos ta\u0161kas \u2014 <b>2025 m. faktiniai darb\u0173 terminai</b> (veisl\u0117s: ${SEASON2025.varieties.join(", ")}).
+     Nuo s\u0117jos iki rovimo pra\u0117jo <b>${sp.median} d.</b> (intervalas ${sp.min}\u2013${sp.max} d.). Plot\u0173/lauk\u0173 s\u0105ra\u0161o \u010dia n\u0117ra \u2014 tik laikai.`;
+  const win=s=>s?`${ltDate(s.earliest)} \u2026 ${ltDate(s.latest)}`:"\u2013";
+  const row=(op,s,c)=>`<tr><td>${op}</td><td>${s?ltDate(s.median):"\u2013"}</td><td>${win(s)}</td><td>${c}</td></tr>`;
+  document.getElementById("season2025Table").innerHTML=
+    row("S\u0117ja",o.sow,"Pagrindin\u0117 mas\u0117 \u2013 gegu\u017e\u0117s antra pus\u0117")+
+    row("Pikt\u017eoli\u0173 pur\u0161kimas (MCPA)",o.mcpa,"~10\u201312 d. po s\u0117jos")+
+    row("Varpini\u0173 pur\u0161kimas (pantera)",o.pantera,"Dalyje lauk\u0173")+
+    row("Pur\u0161kimas prie\u0161 rovim\u0105",o.prePull,"Dalyje lauk\u0173")+
+    row("Rovimas",o.pull,`Pagal s\u0117jos dat\u0105; mediana ~${sp.median} d. nuo s\u0117jos`);
+}
+
+/* ============ CHART ============ */
+const markerLinePlugin={id:"markerLines",afterDatasetsDraw(chart,a,opt){
+  const {ctx,chartArea:{top,bottom},scales:{x}}=chart;(opt.markers||[]).forEach(m=>{
+    if(!m.date)return;const xp=x.getPixelForValue(m.date);if(xp<x.left||xp>x.right)return;
+    ctx.save();ctx.beginPath();ctx.moveTo(xp,top);ctx.lineTo(xp,bottom);ctx.lineWidth=m.width||2;
+    ctx.setLineDash(m.dash||[]);ctx.strokeStyle=m.color||"#263326";ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle=m.color||"#263326";ctx.font="bold 11px Arial";ctx.textAlign="center";
+    ctx.fillText(m.label,xp,top+(m.y||14));ctx.restore();});}};
+Chart.register(markerLinePlugin);
+
+function map2025ToYear(dateStr,year){if(!dateStr)return null;return year+"-"+dateStr.slice(5);}
+
+function drawChart(rows,avgRows,thresholds,todayStr,sowing,emergence){
+  const ctx=document.getElementById("mainChart"); if(chart) chart.destroy();
+  const labels=rows.map(r=>r.date);
+  const avgByDate=new Map(avgRows.map(r=>[r.date,r.cumGdd]));
+  const avgLine=labels.map(d=>avgByDate.get(d)??null);
+  const actualLine=rows.map(r=>(r.source==="fact"?r.cumGdd:null));
+  const firstFc=rows.findIndex(r=>r.source!=="fact");
+  const fcLine=rows.map((r,i)=>{if(firstFc===-1)return null;if(i===firstFc-1)return rows[i].cumGdd;return i>=firstFc?r.cumGdd:null;});
+  const horiz=(v,l,c)=>({label:l,data:labels.map(()=>v),yAxisID:"yGdd",borderColor:c,borderWidth:1.5,borderDash:[7,5],pointRadius:0,type:"line"});
+
+  const year=new Date().getFullYear();
+  const markers=[
+    {date:sowing,label:"SĖJA",color:"#6b756b",width:2,dash:[4,4],y:28},
+    {date:emergence,label:"SUDYGO",color:"#3f8536",width:2,dash:[4,4],y:42},
+    {date:todayStr,label:"ŠIANDIEN",color:"#263326",width:4,y:14}
+  ];
+  if(SEASON2025){
+    const p1=map2025ToYear(SEASON2025.ops.pull.median,year);
+    if(p1) markers.push({date:p1,label:"2025 ROVIMAS",color:"#9b59b6",width:2,dash:[2,3],y:56});
+  }
+
+  chart=new Chart(ctx,{
+    data:{labels,datasets:[
+      {type:"bar",label:"Faktiniai dienos krituliai, mm",data:rows.map(r=>r.source==="fact"?r.rain:null),yAxisID:"yRain",backgroundColor:"rgba(93,156,236,.45)",borderColor:"rgba(93,156,236,.85)",borderWidth:1},
+      {type:"line",label:"Faktinė T suma, °C·d",data:actualLine,yAxisID:"yGdd",borderColor:"#3f8536",pointRadius:0,borderWidth:5,spanGaps:false,tension:.15},
+      {type:"line",label:"Prognozė / tęsinys, °C·d",data:fcLine,yAxisID:"yGdd",borderColor:"#3f8536",pointRadius:0,borderWidth:3,borderDash:[8,6],spanGaps:false,tension:.15},
+      {type:"line",label:"Daugiametis vidurkis, °C·d",data:avgLine,yAxisID:"yGdd",borderColor:"#94b65f",pointRadius:0,borderWidth:2,borderDash:[3,4],tension:.15},
+      horiz(thresholds.flower,"Žydėjimas","#d99a22"),
+      horiz(thresholds.fiber,"Pluošto branda","#bf6d1f"),
+      horiz(thresholds.seed,"Sėklų branda","#bf4a3d")
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
+      plugins:{legend:{position:"bottom"},markerLines:{markers},
+        tooltip:{callbacks:{afterBody:(it)=>{const r=rows[it[0].dataIndex];
+          if(r?.source==="fact")return "Faktiniai LHMT stebėjimai";
+          if(r?.source==="forecast")return "LHMT prognozė";
+          if(r?.source==="model")return "Tęsinys pagal daugiametį vidurkį";return "";}}}},
+      scales:{x:{ticks:{maxTicksLimit:12}},
+        yGdd:{type:"linear",position:"left",title:{display:true,text:"Temperatūrų suma, °C·d"},min:0},
+        yRain:{type:"linear",position:"right",title:{display:true,text:"Krituliai, mm"},grid:{drawOnChartArea:false},min:0}}}
+  });
+}
+
+/* ============ MAIN ============ */
+async function run(){
+  try{
+    showProgress(false);
+    setStatus("Kraunami LHMT meteorologiniai duomenys ir skaičiuojamos ribos…");
+    const variety=document.getElementById("variety").value;
+    const loc=locations[document.getElementById("location").value];
+    const sowing=document.getElementById("sowing").value;
+    const emergence=document.getElementById("emergence").value||sowing;
+    const calcStart=emergence;
+    const thresholds=varieties[variety];
+    const densities=getDensities(); renderDensityStageTable(densities);
+    const curHeight=parseFloat(document.getElementById("curHeight").value)||null;
+    const growthRate=document.getElementById("growthRate").value!==""?parseFloat(document.getElementById("growthRate").value):null;
+
+    if(!sowing) throw new Error("Pasirinkite sėjos datą.");
+    const sowDate=parse(sowing),emergenceDate=parse(emergence),today=new Date(),todayStr=fmt(today);
+    if(emergenceDate<sowDate) throw new Error("Sudygimo data negali būti ankstesnė už sėjos datą.");
+    if(sowDate>today) throw new Error("Sėjos data negali būti ateityje.");
+    if(emergenceDate>today) throw new Error("Sudygimo data negali būti ateityje.");
+
+    document.getElementById("flowerThr").textContent=`${thresholds.flower} °C·d`;
+    document.getElementById("fiberThr").textContent=`${thresholds.fiber} °C·d`;
+    document.getElementById("thresholdTable").innerHTML=`
+      <tr><td>Žydėjimo pradžia</td><td>${thresholds.flower} °C·d</td></tr>
+      <tr><td>Pluošto branda / rovimo pradžia</td><td>${thresholds.fiber} °C·d</td></tr>
+      <tr><td>Sėklų branda</td><td>${thresholds.seed} °C·d</td></tr>`;
+
+    // 1) Faktiniai (LHMT) nuo sudygimo iki vakar
+    const yesterday=fmt(addDays(today,-1));
+    let histRows=[];
+    if(calcStart<=yesterday){
+      showProgress(true,"Kraunami LHMT faktiniai stebėjimai…",0);
+      histRows=await getActuals(loc,calcStart,yesterday,(i,t)=>showProgress(true,`LHMT faktas: ${i}/${t} d.`,Math.round(i/t*100)));
+    }
+    // 2) Prognozė (LHMT)
+    let fcRows=[], srcLabel="LHMT prognozė";
+    try{ fcRows=await fetchForecastLHMT(loc); }
+    catch(e){ console.warn("LHMT prognozės klaida, Open-Meteo:",e); fcRows=await fetchForecastOM(loc.lat,loc.lon,FORECAST_HORIZON_DAYS); srcLabel="Open-Meteo (atsarginis)"; }
+    const fcFuture=fcRows.filter(r=>r.date>=todayStr);
+    renderForecastCard(fcRows.filter(r=>r.date>=todayStr), srcLabel);
+
+    // 3) Sujungiam faktą + prognozę
+    const mergedMap=new Map();
+    [...histRows,...fcFuture].forEach(r=>mergedMap.set(r.date,r));
+    const baseRows=cumulative([...mergedMap.values()].sort((a,b)=>a.date.localeCompare(b.date)));
+
+    // 4) Daugiametis vidurkis + tęsinys
+    showProgress(true,"Kraunamas daugiametis archyvas…",0);
+    const nYears=5;
+    const {avgCum,hist}=await getMultiYearAverage(loc,calcStart,thresholds,nYears);
+    const rows=extendWithAverage(baseRows,avgCum,thresholds,calcStart);
+    showProgress(false);
+
+    // 5) KPI + datos
+    const lastActual=baseRows.filter(r=>r.source==="fact").slice(-1)[0]||baseRows[0]||rows[0];
+    const flower=findDate(rows,thresholds.flower),fiber=findDate(rows,thresholds.fiber),seed=findDate(rows,thresholds.seed);
+    const factRows=baseRows.filter(r=>r.source==="fact");
+    const rain7=(factRows.length?factRows:baseRows).slice(-7).reduce((a,b)=>a+(b.rain||0),0);
+
+    document.getElementById("kpiGdd").textContent=`${Math.round(lastActual?.cumGdd??0)}`;
+    document.getElementById("kpiRain").textContent=`${Math.round(lastActual?.cumRain??0)}`;
+    document.getElementById("kpiRain7").textContent=`${Math.round(rain7)}`;
+    document.getElementById("kpiFlower").textContent=ltDate(flower);
+    document.getElementById("kpiFiber").textContent=ltDate(fiber);
+    document.getElementById("kpiDensity").textContent=densities.latest?`${Math.round(densities.latest)}`:"–";
+
+    const fc=forecastSummary(fcFuture);
+    renderRecommendations(lastActual?.cumGdd??0,rain7,lastActual?.cumRain??0,thresholds,flower,fiber,densities,curHeight,growthRate,fc);
+
+    document.getElementById("historyTable").innerHTML=hist.map(h=>`
+      <tr><td>${h.year}</td><td>${ltDate(h.flower)}</td><td>${ltDate(h.fiber)}</td><td>${ltDate(h.seed)}</td>
+      <td>${h.rainFlower==null?"–":Math.round(h.rainFlower)+" mm"}</td></tr>`).join("");
+
+    drawChart(rows,avgCum,thresholds,todayStr,sowing,emergence);
+    render2025();
+    setStatus(`<b>${loc.name}</b>. Veislė: ${variety} (${thresholds.group}). Faktinė linija iki ${ltDate(lastActual?.date)};
+      nuo šiandienos – LHMT prognozė (punktyru), toliau – daugiametis tęsinys. Istorijos šaltinis: ${histSource()==="lhmt"?"LHMT archyvas":"Open-Meteo"}.`);
+  }catch(e){
+    console.error(e); showProgress(false);
+    setStatus((e.message||"Įvyko klaida.")+" Jei naudojamas LHMT ir matote tinklo/CORS klaidą, pabandykite istorijos šaltinį „Open-Meteo“ arba paleiskite failą per vietinį serverį.","error");
+  }
+}
+
+/* listeners */
+["runBtn"].forEach(id=>document.getElementById(id).addEventListener("click",run));
+["variety","location","sowing","emergence","rowSpacing","histSource"].forEach(id=>document.getElementById(id).addEventListener("change",run));
+["plantsEmergence","plantsPgr","plantsFlower","curHeight","growthRate"].forEach(id=>document.getElementById(id).addEventListener("input",()=>{ /* perskaičiuojam tik tankumą/rekomendacijas be naujų užklausų jei nori – paprastumui kviečiam run debounce'u */ clearTimeout(window.__t);window.__t=setTimeout(run,600);}));
+
+(function init(){
+  const d=new Date();
+  const defaultSowing=new Date(d.getFullYear(),4,1); // gegužės 1 – atitinka jūsų 2025 sėją
+  document.getElementById("sowing").value=fmt(defaultSowing);
+  document.getElementById("emergence").value=fmt(addDays(defaultSowing,10));
+  render2025();
+  run();
+})();
+</script>
+</body>
+</html>
