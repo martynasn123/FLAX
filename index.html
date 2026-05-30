@@ -3,34 +3,31 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Visio-LIN LT v6</title>
+
+<title>Visio-LIN LT v7</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 body { font-family: Arial; margin: 10px; }
-.container { max-width: 1100px; margin: auto; }
+.container { max-width: 1200px; margin:auto; }
 
 .grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 15px;
+  display:grid;
+  grid-template-columns: 2fr 1fr;
+  gap:15px;
 }
 
-@media(min-width:900px){
-  .grid { grid-template-columns: 2fr 1fr; }
+@media(max-width:900px){
+  .grid { grid-template-columns:1fr; }
 }
 
-.card {
-  border: 1px solid #ccc;
-  padding: 10px;
-  border-radius: 8px;
-}
+.card { border:1px solid #ccc; padding:10px; border-radius:8px; }
 
-input, select, button {
-  width: 100%;
-  margin: 5px 0;
-  padding: 8px;
+input,select,button{
+  width:100%;
+  margin:5px 0;
+  padding:8px;
 }
 </style>
 </head>
@@ -39,37 +36,16 @@ input, select, button {
 
 <div class="container">
 
-<h2>Visio-LIN LT</h2>
+<h2>Visio-LIN LT v7</h2>
 
 <div class="card">
-<label>Veislė</label>
-<select id="variety">
-  <option value="early">DELTA (ankstyva)</option>
-  <option value="mid">DAMARA</option>
-  <option value="mid">WPB ELOISE</option>
-</select>
-
-<label>Vietovė</label>
 <select id="location">
-  <option value="vilnius">Vilnius</option>
-  <option value="kedainiai">Kėdainiai</option>
+  <option value="vilniaus-ams">Vilnius</option>
+  <option value="dotnuvos-ams">Kėdainiai</option>
 </select>
 
-<label>Sudygimo data</label>
 <input type="date" id="germination">
-
-<label>Tarpueilis (cm)</label>
-<select id="row">
-  <option value="7">7</option>
-  <option value="12.5">12.5</option>
-  <option value="15">15</option>
-  <option value="18">18</option>
-</select>
-
-<label>Augalai per 20 cm</label>
-<input type="number" id="plants">
-
-<button onclick="loadData()">Atnaujinti</button>
+<button onclick="init()">Atnaujinti</button>
 </div>
 
 <div class="grid">
@@ -79,56 +55,40 @@ input, select, button {
 </div>
 
 <div class="card">
+<h3>Statusas</h3>
+<div id="stage"></div>
+
 <h3>Rekomendacijos</h3>
 <div id="rec"></div>
 
-<h3>Tankumas</h3>
-<div id="density"></div>
+<h3>Artimiausios 10 d.</h3>
+<div id="plan"></div>
 </div>
 
 </div>
-
 </div>
 
 <script>
-const BASE = 5;
+const BASE=5;
 
-const STATIONS = {
-  vilnius: "vilniaus-ams",
-  kedainiai: "dotnuvos-ams"
-};
-
-let chart = new Chart(document.getElementById("chart"), {
-  type: "line",
-  data: {
-    labels: [],
-    datasets: [{
-      label: "°C·d",
-      data: [],
-      borderWidth: 4,
-      borderColor: "green"
-    }]
-  }
-});
-
-async function fetchData(station){
-  const year = new Date().getFullYear();
+// ===== API FETCH =====
+async function fetchYear(station, year){
   const res = await fetch(`https://api.meteo.lt/v1/stations/${station}/observations/${year}-01-01`);
   const json = await res.json();
   return json.observations;
 }
 
+// ===== GDD =====
 function calcGDD(data, germ){
-  let sum = 0;
-  let arr = [];
+  let sum=0;
+  let arr=[];
 
   data.forEach(d=>{
-    let date = d.observationTimeUtc.split(" ")[0];
-    let t = parseFloat(d.airTemperature);
+    let date=d.observationTimeUtc.split(" ")[0];
+    let t=parseFloat(d.airTemperature);
     if(!t) return;
 
-    let gdd = Math.max(t-BASE,0);
-
+    let gdd=Math.max(t-BASE,0);
     if(date>=germ) sum+=gdd;
 
     arr.push({date,sum});
@@ -137,7 +97,25 @@ function calcGDD(data, germ){
   return arr;
 }
 
-function getStage(sum){
+// ===== PROGNOZĖ (paprasta) =====
+function forecast(lastValue){
+  let arr=[];
+  let sum=lastValue;
+
+  for(let i=1;i<=10;i++){
+    sum+=10; // vidutinis augimas
+    arr.push(sum);
+  }
+  return arr;
+}
+
+// ===== ISTORIJA (supaprastinta bazė) =====
+function fakeAvg(data){
+  return data.map(d=>d.sum*0.9);
+}
+
+// ===== STAGES =====
+function stage(sum){
   if(sum<150) return "Dygimas";
   if(sum<300) return "Ankstyvas augimas";
   if(sum<500) return "Intensyvus augimas";
@@ -146,54 +124,78 @@ function getStage(sum){
   return "Branda";
 }
 
-function recommendations(sum){
-  if(sum<300){
-    return "Piktžolių kontrolė (iki ~20 cm). Galimos veikliosios: quizalofop, bentazonas.";
-  }
-  if(sum<600){
-    return "Stebėti ligas (miltligė). Galimi: azoksistrobinas, tebukonazolas. Vertinti išgulimo riziką.";
-  }
-  if(sum<850){
-    return "Nebenaudoti fungicidų. Planuoti rovimą.";
-  }
-  return "Rovimo langas. Vengti perbrendimo.";
+// ===== REKOMENDACIJOS =====
+function rec(sum){
+  if(sum<300) return "PURKŠTI nuo piktžolių (iki 20 cm)";
+  if(sum<600) return "REGULIATORIUS + fungicidas (azoksistrobinas)";
+  if(sum<850) return "STEbėti, ruoštis rovimo langui";
+  return "ROVIMAS";
 }
 
-function calcDensity(){
-  let row = parseFloat(document.getElementById("row").value);
-  let plants = parseFloat(document.getElementById("plants").value);
+// ===== 10 dienų planas =====
+function plan(sum){
+  let out="";
+  for(let i=1;i<=10;i++){
+    let s=sum+i*10;
 
-  if(!plants) return;
-
-  let density = plants * (100/20) * (100/row);
-
-  let status = "🟡";
-  if(density>1400 && density<1700) status="🟢";
-  if(density<1200 || density>2000) status="🔴";
-
-  document.getElementById("density").innerHTML =
-    density.toFixed(0)+" aug/m² "+status;
+    if(s<300) out+="D"+i+": herbicidas<br>";
+    else if(s<600) out+="D"+i+": reguliatorius<br>";
+    else out+="D"+i+": stebėti<br>";
+  }
+  return out;
 }
 
-async function loadData(){
-  let station = STATIONS[document.getElementById("location").value];
-  let germ = document.getElementById("germination").value;
+// ===== CHART =====
+let chart=new Chart(document.getElementById("chart"),{
+  type:"line",
+  data:{
+    labels:[],
+    datasets:[
+      {label:"Šie metai", data:[], borderWidth:4, borderColor:"green"},
+      {label:"Prognozė", data:[], borderDash:[6,6], borderColor:"green"},
+      {label:"Vidurkis", data:[], borderColor:"gray"}
+    ]
+  }
+});
+
+// ===== MAIN =====
+async function init(){
+
+  const station=document.getElementById("location").value;
+  const germ=document.getElementById("germination").value;
 
   if(!germ){ alert("Įvesk sudygimo datą"); return; }
 
-  let raw = await fetchData(station);
-  let gdd = calcGDD(raw, germ);
+  const year=new Date().getFullYear();
 
-  chart.data.labels = gdd.map(d=>d.date);
-  chart.data.datasets[0].data = gdd.map(d=>d.sum);
+  const raw=await fetchYear(station,year);
+  const gdd=calcGDD(raw,germ);
+
+  const last=gdd[gdd.length-1].sum;
+
+  // labels
+  chart.data.labels=gdd.map(d=>d.date);
+
+  // faktas
+  chart.data.datasets[0].data=gdd.map(d=>d.sum);
+
+  // prognozė
+  let f=forecast(last);
+  chart.data.datasets[1].data=[
+    ...Array(gdd.length-1).fill(null),
+    last,
+    ...f
+  ];
+
+  // vidurkis (placeholder)
+  chart.data.datasets[2].data=fakeAvg(gdd);
+
   chart.update();
 
-  let last = gdd[gdd.length-1].sum;
-
-  document.getElementById("rec").innerHTML =
-    "<b>"+getStage(last)+"</b><br>"+recommendations(last);
-
-  calcDensity();
+  // UI
+  document.getElementById("stage").innerHTML=stage(last);
+  document.getElementById("rec").innerHTML=rec(last);
+  document.getElementById("plan").innerHTML=plan(last);
 }
 </script>
 
